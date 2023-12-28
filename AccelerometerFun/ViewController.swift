@@ -11,8 +11,13 @@
 
 import UIKit
 import CoreMotion
+import Foundation
 
 class ViewController: UIViewController {
+    
+    let filePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("test_log.txt")
+    
+    
     
     var currentMaxAccelX: Double = 0.0
     var currentMaxAccelY: Double = 0.0
@@ -21,23 +26,25 @@ class ViewController: UIViewController {
     var currentMaxRotY: Double = 0.0
     var currentMaxRotZ: Double = 0.0
     
+    
+    
     let motionManager = CMMotionManager()
     
-    @IBOutlet var accX : UILabel = nil
-    @IBOutlet var accY : UILabel = nil
-    @IBOutlet var accZ : UILabel = nil
+    @IBOutlet var accX : UILabel! = nil
+    @IBOutlet var accY : UILabel! = nil
+    @IBOutlet var accZ : UILabel! = nil
     
-    @IBOutlet var maxAccX : UILabel = nil
-    @IBOutlet var maxAccY : UILabel = nil
-    @IBOutlet var maxAccZ : UILabel = nil
+    @IBOutlet var maxAccX : UILabel! = nil
+    @IBOutlet var maxAccY : UILabel! = nil
+    @IBOutlet var maxAccZ : UILabel! = nil
     
-    @IBOutlet var rotX : UILabel = nil
-    @IBOutlet var rotY : UILabel = nil
-    @IBOutlet var rotZ : UILabel = nil
+    @IBOutlet var rotX : UILabel! = nil
+    @IBOutlet var rotY : UILabel! = nil
+    @IBOutlet var rotZ : UILabel! = nil
     
-    @IBOutlet var maxRotX : UILabel = nil
-    @IBOutlet var maxRotY : UILabel = nil
-    @IBOutlet var maxRotZ : UILabel = nil
+    @IBOutlet var maxRotX : UILabel! = nil
+    @IBOutlet var maxRotY : UILabel! = nil
+    @IBOutlet var maxRotZ : UILabel! = nil
     
     
     
@@ -51,24 +58,28 @@ class ViewController: UIViewController {
         motionManager.accelerometerUpdateInterval = 0.2
         motionManager.gyroUpdateInterval = 0.2
         
-        motionManager.startAccelerometerUpdatesToQueue(NSOperationQueue.currentQueue(), withHandler: {(accelerometerData: CMAccelerometerData!, error:NSError!)in
-                self.outputAccelerationData(accelerometerData.acceleration)
-                if error
-                {
-                    println("\(error)")
-                }
-            })
-        
-        motionManager.startGyroUpdatesToQueue(NSOperationQueue.currentQueue(), withHandler: {(gyroData: CMGyroData!, error: NSError!)in
-                self.outputRotationData(gyroData.rotationRate)
-                if error
-                {
-                    println("\(error)")
-                }
-            })
-        
+        motionManager.startAccelerometerUpdates(to: OperationQueue.current!) { (accelerometerData, error) in
+            if let acceleration = accelerometerData?.acceleration {
+                self.outputAccelerationData(acceleration: acceleration)
+            }
+            if let error = error {
+                print("\(error)")
+            }
+        }
 
         
+        motionManager.startGyroUpdates(to: OperationQueue.current!, withHandler: { (gyroData: CMGyroData?, error: Error?) in
+            if let data = gyroData {
+                self.outputRotationData(rotation: data.rotationRate)
+            }
+            if let err = error {
+                print("\(err)")
+            }
+        })
+        
+        if !FileManager.default.fileExists(atPath: filePath.path) {
+            FileManager.default.createFile(atPath: filePath.path, contents: nil, attributes: nil)
+        }
     }
 
     @IBAction func resetButtonPressed(sender : AnyObject)
@@ -85,55 +96,71 @@ class ViewController: UIViewController {
     func outputAccelerationData(acceleration:CMAcceleration)
     {
         // Swift does not have string formation yet
-        accX.text = NSString(format:"%.4f", acceleration.x)
+        accX.text = String(format:"%.4f", acceleration.x)
         
         if fabs(acceleration.x) > fabs(currentMaxAccelX)
         {
             currentMaxAccelX = acceleration.x
         }
         
-        accY.text = NSString(format:"%.4f", acceleration.y)
+        accY.text = String(format:"%.4f", acceleration.y)
         
         if acceleration.y > currentMaxAccelY
         {
             currentMaxAccelY = acceleration.y
         }
-        
-        accZ.text = NSString(format:"%.4f", acceleration.z)
+
+        accZ.text = String(format:"%.4f", acceleration.z)
         
         if acceleration.z > currentMaxAccelZ
         {
             currentMaxAccelZ = acceleration.z
         }
         
-        maxAccX.text = NSString(format:"%.4f", currentMaxAccelX)
-        maxAccY.text = NSString(format:"%.4f", currentMaxAccelY)
-        maxAccZ.text = NSString(format:"%.4f", currentMaxAccelZ)
+        maxAccX.text = String(format:"%.4f", currentMaxAccelX)
+        maxAccY.text = String(format:"%.4f", currentMaxAccelY)
+        maxAccZ.text = String(format:"%.4f", currentMaxAccelZ)
         
     }
     
     func outputRotationData(rotation:CMRotationRate)
     {
-        rotX.text = NSString(format:"%.4f", rotation.x)
+        rotX.text = String(format:"%.4f", rotation.x)
         if fabs(rotation.x) > fabs(currentMaxRotX)
         {
             currentMaxRotX = rotation.x
         }
         
-        rotY.text = NSString(format:"%.4f", rotation.y)
+        rotY.text = String(format:"%.4f", rotation.y)
         if fabs(rotation.y) > fabs(currentMaxRotY)
         {
             currentMaxRotY = rotation.y
         }
-        rotZ.text = NSString(format:"%.4f", rotation.z)
+        rotZ.text = String(format:"%.4f", rotation.z)
         if fabs(rotation.z) > fabs(currentMaxRotZ)
         {
             currentMaxRotZ = rotation.z
         }
         
-        maxRotX.text = NSString(format:"%.4f", currentMaxRotX)
-        maxRotY.text = NSString(format:"%.4f", currentMaxRotY)
-        maxRotZ.text = NSString(format:"%.4f", currentMaxRotZ)
+        maxRotX.text = String(format:"%.4f", currentMaxRotX)
+        maxRotY.text = String(format:"%.4f", currentMaxRotY)
+        maxRotZ.text = String(format:"%.4f", currentMaxRotZ)
+        
+        if let accXString = accX.text, let accYString = accY.text {
+            let values = "acceleration x: \(accXString) y: \(accYString)"
+            print( values )
+            // write the values to the file
+            do {
+                let fileHandle = try FileHandle(forWritingTo: filePath)
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(values.data(using: .utf8)!)
+                fileHandle.closeFile()
+            } catch {
+                print("Error writing to file \(error)")
+            }
+        } else {
+            print("One or both of the optionals are nil")
+        }
     }
 
 }
